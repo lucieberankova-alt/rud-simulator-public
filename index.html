@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RUD simulator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="disclaimer-banner">Živý analytický nástroj pro modelaci variant. Výstupy slouží pouze pro interní diskuse týmu 2ET.</div>
+    <main class="app-shell">
+      <header class="topbar">
+        <p class="eyebrow">Model RUD 2ET</p>
+        <h1>Scénářový simulátor</h1>
+        <p class="hero-subtitle">Scénáře defaultně vycházejí z konstrukce RUD dle legislativy účinné od 1. 1. 2026. Pro zvolený rok drží fixní objem balíku daný realitou Monitoru státní pokladny, předpokladem MF ČR nebo predikcí MF ČR. Uživatelské nastavení a výsledné uživatelské scénáře nemění celkový objem, pouze parametricky upravují jeho rozdělení při zachování stávající konstrukce RUD.</p>
+      </header>
+
+      <section class="layout">
+        <aside class="panel controls">
+          <div class="panel-head">
+            <h2>Scénář</h2>
+            <span id="scenario-validity" class="pill neutral">Kontrola</span>
+          </div>
+
+          <label>
+            Rok objemu
+            <select id="year"></select>
+          </label>
+
+          <div class="group">
+            <h3>Sdílený balík</h3>
+            <label>
+              Počet obyvatel
+              <input id="weight-population" type="text" inputmode="decimal" />
+            </label>
+            <label>
+              Přepočítaný počet obyvatel
+              <span class="label-note">(dle koeficientu velikosti obce)</span>
+              <input id="weight-weighted" type="text" inputmode="decimal" />
+            </label>
+            <label>
+              Výměra
+              <input id="weight-area" type="text" inputmode="decimal" />
+            </label>
+            <label>
+              Žáci
+              <input id="weight-school" type="text" inputmode="decimal" />
+            </label>
+          </div>
+
+          <div class="group">
+            <h3>Motivace DPFO</h3>
+            <label>
+              Procento ze základu DPFO zč
+              <input id="dpfo-percent" type="text" inputmode="decimal" />
+            </label>
+            <label>
+              Kritérium rozdělení
+              <select id="dpfo-metric"></select>
+            </label>
+          </div>
+
+          <div class="group">
+            <h3>SO reziduum</h3>
+            <label>
+              Kritérium rozdělení
+              <select id="so-metric"></select>
+            </label>
+            <label>
+              Členství v SO
+              <select id="so-eligibility">
+                <option value="mapping">Členství z OBCE_KODY</option>
+                <option value="all">Pracovně všechny obce</option>
+              </select>
+            </label>
+            <label>
+              Nápověda pro nulu
+              <select id="zero-component">
+                <option value="population">Počet obyvatel</option>
+                <option value="weightedPopulation">Přepočítaný počet obyvatel</option>
+                <option value="landArea">Výměra</option>
+                <option value="schoolChildren">Žáci</option>
+              </select>
+            </label>
+            <p id="zero-hint" class="hint zero-hint" aria-live="polite"></p>
+          </div>
+
+          <div class="group">
+            <h3>Chování obcí</h3>
+            <label>
+              Více podnikavé
+              <input id="enterprise-upload" type="file" accept=".xlsx,.xls,.csv,.tsv" />
+            </label>
+            <p id="enterprise-status" class="hint upload-status">Nenahráno</p>
+            <label>
+              Více sdružené
+              <input id="association-upload" type="file" accept=".xlsx,.xls,.csv,.tsv" />
+            </label>
+            <p id="association-status" class="hint upload-status">Nenahráno</p>
+          </div>
+
+          <div class="group">
+            <h3>Koeficienty měst</h3>
+            <label>
+              Praha
+              <input id="coef-554782" type="number" step="0.0001" />
+            </label>
+            <label>
+              Brno
+              <input id="coef-582786" type="number" step="0.0001" />
+            </label>
+            <label>
+              Plzeň
+              <input id="coef-554791" type="number" step="0.0001" />
+            </label>
+            <label>
+              Ostrava
+              <input id="coef-554821" type="number" step="0.0001" />
+            </label>
+          </div>
+        </aside>
+
+        <section class="workspace">
+          <section class="fixed-pool-overview">
+            <div class="fixed-pool-header">
+              <div class="fixed-pool-context">
+                <span class="fixed-pool-eyebrow">Pevný objem pro zvolený rok</span>
+                <div class="fixed-pool-title">
+                  <strong>Fixní balík</strong>
+                </div>
+                <p class="fixed-pool-law">§ 4 odst. 1 písm. b), c), d), e), f), h), i)</p>
+              </div>
+              <div class="fixed-pool-amount">
+                <span id="fixed-total-source">-</span>
+                <strong id="fixed-total">-</strong>
+              </div>
+            </div>
+            <p class="pool-subtitle">Rozpad dle současné legislativy:</p>
+            <div class="pool-breakdown">
+              <article class="pool-part">
+                <div class="pool-part-head">
+                  <strong>sdílený balík</strong>
+                  <span>§ 4 odst. 1 písm. b), c), d), e), f), i)</span>
+                </div>
+                <div class="pool-part-value">
+                  <strong id="shared-pool-total">-</strong>
+                  <span id="shared-pool-share">-</span>
+                </div>
+              </article>
+              <div class="pool-plus" aria-hidden="true">+</div>
+              <article class="pool-part">
+                <div class="pool-part-head">
+                  <strong>motivační složka</strong>
+                  <span>§ 4 odst. 1 písm. h)</span>
+                </div>
+                <div class="pool-part-value">
+                  <strong id="motivation-pool-total">-</strong>
+                  <span id="motivation-pool-share">-</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <div class="scenario-section-divider">
+            <span>Výsledky aktuálního scénáře z levého panelu</span>
+          </div>
+
+          <section class="metrics-grid">
+            <article class="metric">
+              <span>Obce v plusu</span>
+              <strong id="winner-count">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obyvatelé v plusu</span>
+              <strong id="winner-population">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obce v minusu</span>
+              <strong id="loser-count">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obyvatelé v minusu</span>
+              <strong id="loser-population">-</strong>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Rozpočet scénáře</h2>
+            </div>
+            <div class="table-wrap">
+              <table class="budget-table">
+                <thead>
+                  <tr>
+                    <th>Složka</th>
+                    <th>Vstup</th>
+                    <th>Částka</th>
+                    <th>% sdíleného balíku</th>
+                    <th>% fixního balíku</th>
+                  </tr>
+                </thead>
+                <tbody id="budget-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="analysis-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny</h2>
+                <span class="muted">počet obcí / obyvatelé</span>
+              </div>
+              <div id="pct-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč</h2>
+                <span class="muted">absolutní změna</span>
+              </div>
+              <div id="czk-buckets" class="bucket-list"></div>
+            </article>
+          </section>
+
+          <section class="panel section-intro">
+            <div class="panel-head">
+              <div>
+                <h2>Dopady podle velikosti obcí</h2>
+                <p class="muted">Kategorie podle počtu obyvatel; dopady jsou počítané z hlavního porovnání <span id="size-impact-comparison">B - A</span></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="size-impact-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>% změna objemu</h2>
+                <span class="muted">součet kategorie</span>
+              </div>
+              <div id="size-impact-pct" class="size-chart"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Změna v Kč</h2>
+                <span class="muted">součet kategorie</span>
+              </div>
+              <div id="size-impact-czk" class="size-chart"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Změna v Kč na obyvatele</h2>
+                <span class="muted">součet dělený obyvateli</span>
+              </div>
+              <div id="size-impact-per-capita" class="size-chart"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Změna v Kč na obec</h2>
+                <span class="muted">součet dělený počtem obcí</span>
+              </div>
+              <div id="size-impact-per-municipality" class="size-chart"></div>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head filters">
+              <div>
+                <h2>Srovnání výsledků</h2>
+                <p class="muted">Vybrané kombinace legislativy a chování obcí; rozdíly vpravo jsou vždy vůči sloupci A</p>
+              </div>
+              <div class="filter-row">
+                <input id="search" type="search" placeholder="Hledat obec" />
+                <select id="aggregation">
+                  <option value="municipality">Obce</option>
+                  <option value="district">Okres dočasně</option>
+                  <option value="so">SO</option>
+                </select>
+                <select id="result-value-mode" aria-label="Zobrazení výsledků">
+                  <option value="total">Celkové částky</option>
+                  <option value="perCapita">Kč na obyv.</option>
+                </select>
+              </div>
+            </div>
+            <div class="comparison-controls">
+              <div class="comparison-slot">
+                <h3>Sloupec A</h3>
+                <label>
+                  Legislativa
+                  <select id="comparison-legislation-0" class="comparison-legislation">
+                    <option value="baseline">Baseline</option>
+                    <option value="custom">Scénář z levého panelu</option>
+                  </select>
+                </label>
+                <label>
+                  Rok objemu
+                  <select id="comparison-year-0" class="comparison-year"></select>
+                </label>
+                <label>
+                  Chování
+                  <select id="comparison-behavior-0" class="comparison-behavior"></select>
+                </label>
+              </div>
+              <div class="comparison-slot">
+                <div class="slot-head">
+                  <h3>Sloupec B</h3>
+                  <label class="check-row">
+                    <input id="comparison-visible-1" type="checkbox" checked />
+                    Zobrazit
+                  </label>
+                </div>
+                <label>
+                  Legislativa
+                  <select id="comparison-legislation-1" class="comparison-legislation">
+                    <option value="baseline">Baseline</option>
+                    <option value="custom" selected>Scénář z levého panelu</option>
+                  </select>
+                </label>
+                <label>
+                  Rok objemu
+                  <select id="comparison-year-1" class="comparison-year"></select>
+                </label>
+                <label>
+                  Chování
+                  <select id="comparison-behavior-1" class="comparison-behavior"></select>
+                </label>
+              </div>
+              <div class="comparison-slot">
+                <div class="slot-head">
+                  <h3>Sloupec C</h3>
+                  <label class="check-row">
+                    <input id="comparison-visible-2" type="checkbox" />
+                    Zobrazit
+                  </label>
+                </div>
+                <label>
+                  Legislativa
+                  <select id="comparison-legislation-2" class="comparison-legislation">
+                    <option value="baseline">Baseline</option>
+                    <option value="custom" selected>Scénář z levého panelu</option>
+                  </select>
+                </label>
+                <label>
+                  Rok objemu
+                  <select id="comparison-year-2" class="comparison-year"></select>
+                </label>
+                <label>
+                  Chování
+                  <select id="comparison-behavior-2" class="comparison-behavior"></select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap result-wrap">
+              <table class="result-table">
+                <thead id="result-head"></thead>
+                <tbody id="result-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel section-intro">
+            <div class="panel-head">
+              <div>
+                <h2>Dopady po ORP</h2>
+                <p class="muted">Součty výsledků po ORP; používá stejné sloupce A/B/C jako srovnání výše</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="metrics-grid">
+            <article class="metric">
+              <span>ORP v plusu</span>
+              <strong id="orp-winner-count">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obyvatelé v ORP v plusu</span>
+              <strong id="orp-winner-population">-</strong>
+            </article>
+            <article class="metric">
+              <span>ORP v minusu</span>
+              <strong id="orp-loser-count">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obyvatelé v ORP v minusu</span>
+              <strong id="orp-loser-population">-</strong>
+            </article>
+          </section>
+
+          <section class="analysis-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny po ORP</h2>
+                <span class="muted">počet ORP / obyvatelé</span>
+              </div>
+              <div id="orp-pct-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč po ORP</h2>
+                <span class="muted">absolutní změna</span>
+              </div>
+              <div id="orp-czk-buckets" class="bucket-list"></div>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head filters">
+              <div>
+                <h2>Srovnání výsledků po ORP</h2>
+                <p class="muted">Rozdíly vpravo jsou vždy vůči sloupci A</p>
+              </div>
+              <div class="filter-row territory-filter">
+                <input id="orp-search" type="search" placeholder="Hledat ORP" />
+                <select id="orp-result-value-mode" aria-label="Zobrazení výsledků po ORP">
+                  <option value="total">Celkové částky</option>
+                  <option value="perCapita">Kč na obyv.</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap result-wrap">
+              <table class="result-table">
+                <thead id="orp-result-head"></thead>
+                <tbody id="orp-result-body"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel section-intro">
+            <div class="panel-head">
+              <div>
+                <h2>Dopady po krajích</h2>
+                <p class="muted">Součty výsledků po krajích; používá stejné sloupce A/B/C jako srovnání výše</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="metrics-grid">
+            <article class="metric">
+              <span>Kraje v plusu</span>
+              <strong id="region-winner-count">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obyvatelé v krajích v plusu</span>
+              <strong id="region-winner-population">-</strong>
+            </article>
+            <article class="metric">
+              <span>Kraje v minusu</span>
+              <strong id="region-loser-count">-</strong>
+            </article>
+            <article class="metric">
+              <span>Obyvatelé v krajích v minusu</span>
+              <strong id="region-loser-population">-</strong>
+            </article>
+          </section>
+
+          <section class="analysis-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny po krajích</h2>
+                <span class="muted">počet krajů / obyvatelé</span>
+              </div>
+              <div id="region-pct-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč po krajích</h2>
+                <span class="muted">absolutní změna</span>
+              </div>
+              <div id="region-czk-buckets" class="bucket-list"></div>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head filters">
+              <div>
+                <h2>Srovnání výsledků po krajích</h2>
+                <p class="muted">Rozdíly vpravo jsou vždy vůči sloupci A</p>
+              </div>
+              <div class="filter-row territory-filter">
+                <input id="region-search" type="search" placeholder="Hledat kraj" />
+                <select id="region-result-value-mode" aria-label="Zobrazení výsledků po krajích">
+                  <option value="total">Celkové částky</option>
+                  <option value="perCapita">Kč na obyv.</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap result-wrap">
+              <table class="result-table">
+                <thead id="region-result-head"></thead>
+                <tbody id="region-result-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="./data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

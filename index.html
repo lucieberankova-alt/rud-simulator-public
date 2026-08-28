@@ -29,13 +29,14 @@
 
           <div class="group">
             <h3>Sdílený balík</h3>
+            <p class="group-note">Parametry rozdělení sdíleného balíku dle stávající struktury zákona</p>
             <label>
               Počet obyvatel
               <input id="weight-population" type="text" inputmode="decimal" />
             </label>
             <label>
-              Přepočítaný počet obyvatel
-              <span class="label-note">(dle koeficientu velikosti obce)</span>
+              Počet obyvatel přepočítaný
+              <span class="label-note">dle koef. postupných přechodů</span>
               <input id="weight-weighted" type="text" inputmode="decimal" />
             </label>
             <label>
@@ -49,9 +50,9 @@
           </div>
 
           <div class="group">
-            <h3>Motivace DPFO</h3>
+            <h3>Motivace k podnikání</h3>
             <label>
-              Procento ze základu DPFO zč
+              Procento z DPFO zč
               <input id="dpfo-percent" type="text" inputmode="decimal" />
             </label>
             <label>
@@ -61,7 +62,7 @@
           </div>
 
           <div class="group">
-            <h3>SO reziduum</h3>
+            <h3>Motivace k mikroregionální spolupr.</h3>
             <label>
               Kritérium rozdělení
               <select id="so-metric"></select>
@@ -83,6 +84,7 @@
               </select>
             </label>
             <p id="zero-hint" class="hint zero-hint" aria-live="polite"></p>
+            <button id="zero-apply" class="zero-apply" type="button">Nastavit pro nulu</button>
           </div>
 
           <div class="group">
@@ -165,25 +167,6 @@
             <span>Výsledky aktuálního scénáře z levého panelu</span>
           </div>
 
-          <section class="metrics-grid">
-            <article class="metric">
-              <span>Obce v plusu</span>
-              <strong id="winner-count">-</strong>
-            </article>
-            <article class="metric">
-              <span>Obyvatelé v plusu</span>
-              <strong id="winner-population">-</strong>
-            </article>
-            <article class="metric">
-              <span>Obce v minusu</span>
-              <strong id="loser-count">-</strong>
-            </article>
-            <article class="metric">
-              <span>Obyvatelé v minusu</span>
-              <strong id="loser-population">-</strong>
-            </article>
-          </section>
-
           <section class="panel">
             <div class="panel-head">
               <h2>Rozpočet scénáře</h2>
@@ -193,7 +176,7 @@
                 <thead>
                   <tr>
                     <th>Složka</th>
-                    <th>Vstup</th>
+                    <th>Hodnota parametru dle<br />stávající struktury zákona</th>
                     <th>Částka</th>
                     <th>% sdíleného balíku</th>
                     <th>% fixního balíku</th>
@@ -204,60 +187,26 @@
             </div>
           </section>
 
-          <section class="analysis-grid">
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Frekvence podle % změny</h2>
-                <span class="muted">počet obcí / obyvatelé</span>
-              </div>
-              <div id="pct-buckets" class="bucket-list"></div>
-            </article>
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Frekvence podle Kč</h2>
-                <span class="muted">absolutní změna</span>
-              </div>
-              <div id="czk-buckets" class="bucket-list"></div>
-            </article>
+          <section class="area-title area-title-dark">
+            <h2>Dopady po obcích</h2>
           </section>
 
-          <section class="panel section-intro">
-            <div class="panel-head">
-              <div>
-                <h2>Dopady podle velikosti obcí</h2>
-                <p class="muted">Kategorie podle počtu obyvatel; dopady jsou počítané z hlavního porovnání <span id="size-impact-comparison">B - A</span></p>
-              </div>
-            </div>
-          </section>
-
-          <section class="size-impact-grid">
-            <article class="panel">
-              <div class="panel-head">
-                <h2>% změna objemu</h2>
-                <span class="muted">součet kategorie</span>
-              </div>
-              <div id="size-impact-pct" class="size-chart"></div>
+          <section class="metrics-grid">
+            <article class="metric metric-positive">
+              <span>Obce v plusu</span>
+              <strong id="winner-count">-</strong>
             </article>
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Změna v Kč</h2>
-                <span class="muted">součet kategorie</span>
-              </div>
-              <div id="size-impact-czk" class="size-chart"></div>
+            <article class="metric metric-positive">
+              <span>Obyvatelé v plusu</span>
+              <strong id="winner-population">-</strong>
             </article>
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Změna v Kč na obyvatele</h2>
-                <span class="muted">součet dělený obyvateli</span>
-              </div>
-              <div id="size-impact-per-capita" class="size-chart"></div>
+            <article class="metric metric-negative">
+              <span>Obce v minusu</span>
+              <strong id="loser-count">-</strong>
             </article>
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Změna v Kč na obec</h2>
-                <span class="muted">součet dělený počtem obcí</span>
-              </div>
-              <div id="size-impact-per-municipality" class="size-chart"></div>
+            <article class="metric metric-negative">
+              <span>Obyvatelé v minusu</span>
+              <strong id="loser-population">-</strong>
             </article>
           </section>
 
@@ -277,6 +226,12 @@
                 <select id="result-value-mode" aria-label="Zobrazení výsledků">
                   <option value="total">Celkové částky</option>
                   <option value="perCapita">Kč na obyv.</option>
+                </select>
+                <select id="region-filter" aria-label="Filtr kraj">
+                  <option value="">Filtr kraj: vše</option>
+                </select>
+                <select id="orp-filter" aria-label="Filtr ORP">
+                  <option value="">Filtr ORP: vše</option>
                 </select>
               </div>
             </div>
@@ -356,48 +311,98 @@
             </div>
           </section>
 
+          <section class="analysis-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny</h2>
+                <span class="muted">analýza dle počtu obcí</span>
+              </div>
+              <div id="pct-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny</h2>
+                <span class="muted">analýza dle podílu obyvatel</span>
+              </div>
+              <div id="pct-population-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč</h2>
+                <span class="muted">analýza dle počtu obcí</span>
+              </div>
+              <div id="czk-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč</h2>
+                <span class="muted">analýza dle podílu obyvatel</span>
+              </div>
+              <div id="czk-population-buckets" class="bucket-list"></div>
+            </article>
+          </section>
+
           <section class="panel section-intro">
             <div class="panel-head">
               <div>
-                <h2>Dopady po ORP</h2>
-                <p class="muted">Součty výsledků po ORP; používá stejné sloupce A/B/C jako srovnání výše</p>
+                <h2>Dopady podle velikosti obcí</h2>
+                <p class="muted">Kategorie podle počtu obyvatel; dopady jsou počítané z hlavního porovnání <span id="size-impact-comparison">B - A</span></p>
               </div>
             </div>
           </section>
 
-          <section class="metrics-grid">
-            <article class="metric">
-              <span>ORP v plusu</span>
-              <strong id="orp-winner-count">-</strong>
+          <section class="size-impact-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>% změna objemu</h2>
+                <span class="muted">součet kategorie</span>
+              </div>
+              <div id="size-impact-pct" class="size-chart"></div>
             </article>
-            <article class="metric">
-              <span>Obyvatelé v ORP v plusu</span>
-              <strong id="orp-winner-population">-</strong>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Změna v Kč</h2>
+                <span class="muted">součet kategorie</span>
+              </div>
+              <div id="size-impact-czk" class="size-chart"></div>
             </article>
-            <article class="metric">
-              <span>ORP v minusu</span>
-              <strong id="orp-loser-count">-</strong>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Změna v Kč na obyvatele</h2>
+                <span class="muted">součet dělený obyvateli</span>
+              </div>
+              <div id="size-impact-per-capita" class="size-chart"></div>
             </article>
-            <article class="metric">
-              <span>Obyvatelé v ORP v minusu</span>
-              <strong id="orp-loser-population">-</strong>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Změna v Kč na obec</h2>
+                <span class="muted">součet dělený počtem obcí</span>
+              </div>
+              <div id="size-impact-per-municipality" class="size-chart"></div>
             </article>
           </section>
 
-          <section class="analysis-grid">
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Frekvence podle % změny po ORP</h2>
-                <span class="muted">počet ORP / obyvatelé</span>
-              </div>
-              <div id="orp-pct-buckets" class="bucket-list"></div>
+          <section class="area-title area-title-dark">
+            <h2>Dopady po ORP</h2>
+            <p>Součty výsledků po ORP; používá stejné sloupce A/B/C jako srovnání výše</p>
+          </section>
+
+          <section class="metrics-grid">
+            <article class="metric metric-positive">
+              <span>ORP v plusu</span>
+              <strong id="orp-winner-count">-</strong>
             </article>
-            <article class="panel">
-              <div class="panel-head">
-                <h2>Frekvence podle Kč po ORP</h2>
-                <span class="muted">absolutní změna</span>
-              </div>
-              <div id="orp-czk-buckets" class="bucket-list"></div>
+            <article class="metric metric-positive">
+              <span>Obyvatelé v plusu</span>
+              <strong id="orp-winner-population">-</strong>
+            </article>
+            <article class="metric metric-negative">
+              <span>ORP v minusu</span>
+              <strong id="orp-loser-count">-</strong>
+            </article>
+            <article class="metric metric-negative">
+              <span>Obyvatelé v minusu</span>
+              <strong id="orp-loser-population">-</strong>
             </article>
           </section>
 
@@ -409,6 +414,9 @@
               </div>
               <div class="filter-row territory-filter">
                 <input id="orp-search" type="search" placeholder="Hledat ORP" />
+                <select id="orp-region-filter" aria-label="Filtr kraj pro ORP">
+                  <option value="">Filtr kraj: vše</option>
+                </select>
                 <select id="orp-result-value-mode" aria-label="Zobrazení výsledků po ORP">
                   <option value="total">Celkové částky</option>
                   <option value="perCapita">Kč na obyv.</option>
@@ -423,48 +431,58 @@
             </div>
           </section>
 
-          <section class="panel section-intro">
-            <div class="panel-head">
-              <div>
-                <h2>Dopady po krajích</h2>
-                <p class="muted">Součty výsledků po krajích; používá stejné sloupce A/B/C jako srovnání výše</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="metrics-grid">
-            <article class="metric">
-              <span>Kraje v plusu</span>
-              <strong id="region-winner-count">-</strong>
-            </article>
-            <article class="metric">
-              <span>Obyvatelé v krajích v plusu</span>
-              <strong id="region-winner-population">-</strong>
-            </article>
-            <article class="metric">
-              <span>Kraje v minusu</span>
-              <strong id="region-loser-count">-</strong>
-            </article>
-            <article class="metric">
-              <span>Obyvatelé v krajích v minusu</span>
-              <strong id="region-loser-population">-</strong>
-            </article>
-          </section>
-
           <section class="analysis-grid">
             <article class="panel">
               <div class="panel-head">
-                <h2>Frekvence podle % změny po krajích</h2>
-                <span class="muted">počet krajů / obyvatelé</span>
+                <h2>Frekvence podle % změny po ORP</h2>
+                <span class="muted">analýza dle počtu ORP</span>
               </div>
-              <div id="region-pct-buckets" class="bucket-list"></div>
+              <div id="orp-pct-buckets" class="bucket-list"></div>
             </article>
             <article class="panel">
               <div class="panel-head">
-                <h2>Frekvence podle Kč po krajích</h2>
-                <span class="muted">absolutní změna</span>
+                <h2>Frekvence podle % změny po ORP</h2>
+                <span class="muted">analýza dle podílu obyvatel</span>
               </div>
-              <div id="region-czk-buckets" class="bucket-list"></div>
+              <div id="orp-pct-population-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč po ORP</h2>
+                <span class="muted">analýza dle počtu ORP</span>
+              </div>
+              <div id="orp-czk-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč po ORP</h2>
+                <span class="muted">analýza dle podílu obyvatel</span>
+              </div>
+              <div id="orp-czk-population-buckets" class="bucket-list"></div>
+            </article>
+          </section>
+
+          <section class="area-title area-title-dark">
+            <h2>Dopady po krajích</h2>
+            <p>Součty výsledků po krajích; používá stejné sloupce A/B/C jako srovnání výše</p>
+          </section>
+
+          <section class="metrics-grid">
+            <article class="metric metric-positive">
+              <span>Kraje v plusu</span>
+              <strong id="region-winner-count">-</strong>
+            </article>
+            <article class="metric metric-positive">
+              <span>Obyvatelé v plusu</span>
+              <strong id="region-winner-population">-</strong>
+            </article>
+            <article class="metric metric-negative">
+              <span>Kraje v minusu</span>
+              <strong id="region-loser-count">-</strong>
+            </article>
+            <article class="metric metric-negative">
+              <span>Obyvatelé v minusu</span>
+              <strong id="region-loser-population">-</strong>
             </article>
           </section>
 
@@ -488,6 +506,37 @@
                 <tbody id="region-result-body"></tbody>
               </table>
             </div>
+          </section>
+
+          <section class="analysis-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny po krajích</h2>
+                <span class="muted">analýza dle počtu krajů</span>
+              </div>
+              <div id="region-pct-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle % změny po krajích</h2>
+                <span class="muted">analýza dle podílu obyvatel</span>
+              </div>
+              <div id="region-pct-population-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč po krajích</h2>
+                <span class="muted">analýza dle počtu krajů</span>
+              </div>
+              <div id="region-czk-buckets" class="bucket-list"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h2>Frekvence podle Kč po krajích</h2>
+                <span class="muted">analýza dle podílu obyvatel</span>
+              </div>
+              <div id="region-czk-population-buckets" class="bucket-list"></div>
+            </article>
           </section>
         </section>
       </section>

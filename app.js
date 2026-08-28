@@ -26,33 +26,33 @@ const REGION_ABBREVIATIONS = {
 
 const STANDARD_COMPONENTS = [
   { id: "population", label: "Počet obyvatel", metric: "population", input: "weight-population" },
-  { id: "weightedPopulation", label: "Přepočítaný počet obyvatel", metric: "weightedPopulation", input: "weight-weighted" },
+  { id: "weightedPopulation", label: "Počet obyvatel přepočítaný", metric: "weightedPopulation", input: "weight-weighted" },
   { id: "landArea", label: "Výměra", metric: "landArea", input: "weight-area" },
   { id: "schoolChildren", label: "Žáci", metric: "schoolChildren", input: "weight-school" },
 ];
 
 const PCT_BUCKETS = [
-  { label: "< -5 %", min: -Infinity, max: -0.05 },
-  { label: "-5 až -3 %", min: -0.05, max: -0.03 },
-  { label: "-3 až -1 %", min: -0.03, max: -0.01 },
-  { label: "-1 až < 0 %", min: -0.01, max: 0 },
-  { label: "0 %", exact: 0 },
-  { label: "> 0 až 1 %", min: 0, max: 0.01, includeMin: false },
-  { label: "1 až 3 %", min: 0.01, max: 0.03 },
-  { label: "3 až 5 %", min: 0.03, max: 0.05 },
   { label: "> 5 %", min: 0.05, max: Infinity },
+  { label: "3 až 5 %", min: 0.03, max: 0.05 },
+  { label: "1 až 3 %", min: 0.01, max: 0.03 },
+  { label: "> 0 až 1 %", min: 0, max: 0.01, includeMin: false },
+  { label: "0 %", exact: 0 },
+  { label: "-1 až < 0 %", min: -0.01, max: 0 },
+  { label: "-3 až -1 %", min: -0.03, max: -0.01 },
+  { label: "-5 až -3 %", min: -0.05, max: -0.03 },
+  { label: "< -5 %", min: -Infinity, max: -0.05 },
 ];
 
 const CZK_BUCKETS = [
-  { label: "< -100 mil.", min: -Infinity, max: -100_000_000 },
-  { label: "-100 až -10 mil.", min: -100_000_000, max: -10_000_000 },
-  { label: "-10 až -1 mil.", min: -10_000_000, max: -1_000_000 },
-  { label: "-1 mil. až < 0", min: -1_000_000, max: 0 },
-  { label: "0 Kč", exact: 0 },
-  { label: "> 0 až 1 mil.", min: 0, max: 1_000_000, includeMin: false },
-  { label: "1 až 10 mil.", min: 1_000_000, max: 10_000_000 },
-  { label: "10 až 100 mil.", min: 10_000_000, max: 100_000_000 },
   { label: "> 100 mil.", min: 100_000_000, max: Infinity },
+  { label: "10 až 100 mil.", min: 10_000_000, max: 100_000_000 },
+  { label: "1 až 10 mil.", min: 1_000_000, max: 10_000_000 },
+  { label: "> 0 až 1 mil.", min: 0, max: 1_000_000, includeMin: false },
+  { label: "0 Kč", exact: 0 },
+  { label: "-1 mil. až < 0", min: -1_000_000, max: 0 },
+  { label: "-10 až -1 mil.", min: -10_000_000, max: -1_000_000 },
+  { label: "-100 až -10 mil.", min: -100_000_000, max: -10_000_000 },
+  { label: "< -100 mil.", min: -Infinity, max: -100_000_000 },
 ];
 
 const SIZE_CATEGORIES = [
@@ -71,6 +71,7 @@ const SIZE_CATEGORIES = [
 ];
 
 const DIFF_EPSILON_CZK = 0.5;
+const ZERO_TARGET_SURPLUS_CZK = 0.01;
 
 const state = {
   behaviorUploads: {
@@ -103,7 +104,7 @@ function formatCzk(value) {
 }
 
 function formatPct(value, digits = 2) {
-  return `${formatNumber(value * 100, digits)} %`;
+  return `${formatNumber(value * 100, digits)}\u00a0%`;
 }
 
 function fixedPoolSourceLabel(year) {
@@ -241,9 +242,9 @@ async function readTableFile(file) {
   return window.XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
 }
 
-function setPercentInput(id, value) {
+function setPercentInput(id, value, digits = 2) {
   const input = el(id);
-  input.value = percentInputValue(value);
+  input.value = percentInputValue(value, digits);
   input.dataset.rawValue = String(value);
   input.dataset.pristine = "true";
 }
@@ -502,7 +503,7 @@ function computeScenario(scenario, rows = DATA.municipalities) {
   }));
   summaries.push({
     id: "dpfo",
-    label: "Motivace DPFO zč",
+    label: "Motivace k podnikání",
     input: formatPct(scenario.dpfoMotivationPercent),
     amount: dpfoAmount,
     pctStandard: null,
@@ -510,7 +511,7 @@ function computeScenario(scenario, rows = DATA.municipalities) {
   });
   summaries.push({
     id: "so",
-    label: "Motivace SO reziduum",
+    label: "Motivace k mikroregionální spolupráci",
     input: "dopočet",
     amount: soAmount,
     pctStandard: year.standardPool ? soAmount / year.standardPool : 0,
@@ -696,12 +697,28 @@ function zeroHintText(componentId, selectedWeight, requiredWeight, soAmount) {
   const component = STANDARD_COMPONENTS.find((item) => item.id === componentId);
   const label = component?.label ?? "vybranou složku";
   if (Math.abs(soAmount) < DIFF_EPSILON_CZK) {
-    return `SO složka už je 0 Kč. Váha ${label} může zůstat ${formatPct(selectedWeight, 4)}.`;
+    return `Částka motivace k mikroregionální spolupráci už je 0 Kč. Parametr ${label} může zůstat ${formatPct(selectedWeight, 4)}.`;
   }
 
   const delta = requiredWeight - selectedWeight;
   const direction = delta > 0 ? "zvýšit" : "snížit";
-  return `Pro SO = 0 nastavte ${label} na ${formatPct(requiredWeight, 4)} (${direction} o ${formatPct(Math.abs(delta), 4)}).`;
+  return `Pro vynulování částky zbývající na motivaci k mikroregionální spolupráci nastavte ${label} na ${formatPct(requiredWeight, 4)} (${direction} o ${formatPct(Math.abs(delta), 4)}).`;
+}
+
+function zeroAdjustmentTarget(scenario, result) {
+  const componentId = el("zero-component").value;
+  const component = STANDARD_COMPONENTS.find((item) => item.id === componentId);
+  const selectedWeight = scenario.standardWeights[componentId] ?? 0;
+  const requiredWeight = result.year.standardPool
+    ? selectedWeight + (result.soAmount - ZERO_TARGET_SURPLUS_CZK) / result.year.standardPool
+    : NaN;
+  return {
+    component,
+    componentId,
+    selectedWeight,
+    requiredWeight,
+    canApply: Boolean(component) && Number.isFinite(requiredWeight),
+  };
 }
 
 function dpfoFixedShareClass(value) {
@@ -717,15 +734,21 @@ function renderBudget(result) {
   body.innerHTML = "";
   for (const row of result.summaries) {
     const tr = document.createElement("tr");
-    if (row.id === "so") tr.className = row.amount < 0 ? "invalid-row" : "motivation-row";
+    const displayAmount = Math.abs(row.amount) < DIFF_EPSILON_CZK ? 0 : row.amount;
+    const displayPctStandard = row.pctStandard === null ? null : (displayAmount === 0 ? 0 : row.pctStandard);
+    const displayPctTotal = displayAmount === 0 ? 0 : row.pctTotal;
+    if (row.id === "so") tr.className = displayAmount < 0 ? "invalid-row" : "motivation-row";
     if (row.id === "dpfo") tr.className = "motivation-row";
-    const fixedShareClass = row.id === "dpfo" ? dpfoFixedShareClass(row.pctTotal) : "";
+    const fixedShareClass = row.id === "dpfo" ? dpfoFixedShareClass(displayPctTotal) : "";
+    const inputCell = row.id === "dpfo"
+      ? `${row.input}<span class="cell-note">z DPFO zč</span>`
+      : row.input;
     tr.innerHTML = `
       <td>${row.label}</td>
-      <td>${row.input}</td>
-      <td>${formatCzk(row.amount)}</td>
-      <td>${row.pctStandard === null ? "" : formatPct(row.pctStandard)}</td>
-      <td class="${fixedShareClass}">${formatPct(row.pctTotal)}</td>
+      <td>${inputCell}</td>
+      <td>${formatCzk(displayAmount)}</td>
+      <td>${displayPctStandard === null ? "" : formatPct(displayPctStandard)}</td>
+      <td class="${fixedShareClass}">${formatPct(displayPctTotal)}</td>
     `;
     body.appendChild(tr);
   }
@@ -733,20 +756,29 @@ function renderBudget(result) {
 
 function renderBuckets(id, buckets, rows, options = {}) {
   const entityLabel = options.entityLabel ?? "obcí";
+  const scaleBy = options.scaleBy ?? "count";
   const container = el(id);
   const maxCount = Math.max(1, ...buckets.map((bucket) => bucket.count));
+  const maxPopulation = Math.max(1, ...buckets.map((bucket) => bucket.population));
   const totalPopulation = Math.max(1, sumBy(rows, (row) => row.population));
   container.innerHTML = "";
   for (const bucket of buckets) {
+    const populationShare = bucket.population / totalPopulation;
+    const width = scaleBy === "populationShare"
+      ? (bucket.population / maxPopulation) * 100
+      : (bucket.count / maxCount) * 100;
+    const detail = scaleBy === "populationShare"
+      ? `${formatPct(populationShare, 1)} obyv.`
+      : `${formatNumber(bucket.count)} ${entityLabel}`;
     const item = document.createElement("div");
     item.className = "bucket";
     item.innerHTML = `
       <div class="bucket-label">
         <strong>${bucket.label}</strong>
-        <span>${formatNumber(bucket.count)} ${entityLabel} · ${formatPct(bucket.population / totalPopulation, 1)} obyv.</span>
+        <span>${detail}</span>
       </div>
       <div class="bar-track">
-        <div class="bar ${bucketTone(bucket)}" style="width:${(bucket.count / maxCount) * 100}%"></div>
+        <div class="bar ${bucketTone(bucket)}" style="width:${width}%"></div>
       </div>
     `;
     container.appendChild(item);
@@ -757,6 +789,7 @@ function renderSizeImpactChart(id, rows, getter, formatter) {
   const container = el(id);
   const maxAbs = Math.max(...rows.map((row) => Math.abs(getter(row))));
   const scale = maxAbs || 1;
+  const gridTemplate = `var(--size-row-label-width) repeat(${rows.length}, minmax(62px, 1fr))`;
   container.innerHTML = "";
 
   const columns = rows.map((row) => {
@@ -772,40 +805,65 @@ function renderSizeImpactChart(id, rows, getter, formatter) {
         <div class="size-column-area">
           <div class="size-column-bar ${tone}" style="${barStyle}"></div>
         </div>
-        <div class="size-column-label">${sizeCategoryLabel(row)}</div>
       </div>
     `;
   }).join("");
 
-  const details = rows.map((row) => `
-    <tr>
-      <td><span class="size-table-category">${sizeCategoryLabel(row)}</span></td>
-      <td>${formatNumber(row.count)}</td>
-      <td>${formatNumber(row.population)}</td>
-      <td>${formatCzk(row.baselinePerCapita)}</td>
-      <td>${formatNumber(row.winners)} / ${formatNumber(row.winnerPopulation)} obyv.</td>
-      <td>${formatNumber(row.losers)} / ${formatNumber(row.loserPopulation)} obyv.</td>
-    </tr>
+  const categoryCells = rows.map((row) => `
+    <div class="size-matrix-category">${sizeCategoryLabel(row)}</div>
+  `).join("");
+
+  const matrixRows = [
+    {
+      label: "Obcí",
+      values: rows.map((row) => formatNumber(row.count)),
+    },
+    {
+      label: "Obyvatelé",
+      values: rows.map((row) => formatNumber(row.population)),
+    },
+    {
+      label: "A Kč/obyv.",
+      values: rows.map((row) => formatCzk(row.baselinePerCapita)),
+    },
+    {
+      label: "Plus",
+      className: "positive",
+      values: rows.map((row) => `
+        <span>${formatNumber(row.winners)}</span>
+        <span class="size-matrix-subvalue">${formatNumber(row.winnerPopulation)} obyv.</span>
+      `),
+    },
+    {
+      label: "Minus",
+      className: "negative",
+      values: rows.map((row) => `
+        <span>${formatNumber(row.losers)}</span>
+        <span class="size-matrix-subvalue">${formatNumber(row.loserPopulation)} obyv.</span>
+      `),
+    },
+  ].map((row) => `
+    <div class="size-matrix-row" style="grid-template-columns:${gridTemplate}">
+      <div class="size-matrix-label">${row.label}</div>
+      ${row.values.map((value) => `<div class="size-matrix-cell ${row.className ?? ""}">${value}</div>`).join("")}
+    </div>
   `).join("");
 
   container.innerHTML = `
-    <div class="size-column-plot">
-      ${columns}
-    </div>
-    <div class="size-category-wrap">
-      <table class="size-category-table">
-        <thead>
-          <tr>
-            <th>Kategorie</th>
-            <th>Obcí</th>
-            <th>Obyvatelé</th>
-            <th>A Kč/obyv.</th>
-            <th>Plus</th>
-            <th>Minus</th>
-          </tr>
-        </thead>
-        <tbody>${details}</tbody>
-      </table>
+    <div class="size-aligned-wrap">
+      <div class="size-aligned-inner">
+        <div class="size-column-plot" style="grid-template-columns:${gridTemplate}">
+          <div class="size-plot-spacer" aria-hidden="true"></div>
+          ${columns}
+        </div>
+        <div class="size-category-matrix">
+          <div class="size-matrix-row size-matrix-header" style="grid-template-columns:${gridTemplate}">
+            <div class="size-matrix-label" aria-hidden="true"></div>
+            ${categoryCells}
+          </div>
+          ${matrixRows}
+        </div>
+      </div>
     </div>
   `;
 }
@@ -1085,6 +1143,8 @@ function renderResults(comparison, options = {}) {
   const bodyId = options.bodyId ?? "result-body";
   const mode = options.mode ?? el("aggregation").value;
   const searchId = options.searchId ?? "search";
+  const regionFilterId = options.regionFilterId ?? null;
+  const orpFilterId = options.orpFilterId ?? null;
   const maxRows = options.maxRows ?? 250;
   const tableKey = options.tableKey ?? "results";
   const valueMode = options.valueMode ?? (tableKey === "results" ? (el("result-value-mode")?.value ?? "total") : "total");
@@ -1095,7 +1155,12 @@ function renderResults(comparison, options = {}) {
   const sortState = state.tableSorts[tableKey];
   const searchInput = searchId ? el(searchId) : null;
   const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
-  const filteredRows = aggregateComparisonRows(comparison.rows, mode, scenarios)
+  const regionFilter = regionFilterId ? el(regionFilterId).value : "";
+  const orpFilter = orpFilterId ? el(orpFilterId).value : "";
+  const sourceRows = comparison.rows
+    .filter((row) => !regionFilter || String(row.regionCode ?? "") === regionFilter)
+    .filter((row) => !orpFilter || String(row.orpCode ?? "") === orpFilter);
+  const filteredRows = aggregateComparisonRows(sourceRows, mode, scenarios)
     .filter((row) => !query || String(row.name).toLowerCase().includes(query));
   const aggregated = sortedResultRows(filteredRows, columns, sortState, reference, primaryTarget, valueMode)
     .slice(0, maxRows);
@@ -1171,19 +1236,35 @@ function render() {
     validity.className = "pill good";
   }
 
-  const selectedComponent = el("zero-component").value;
-  const selectedWeight = scenario.standardWeights[selectedComponent] ?? 0;
-  const requiredWeight = selectedWeight + custom.soAmount / custom.year.standardPool;
-  el("zero-hint").textContent = zeroHintText(selectedComponent, selectedWeight, requiredWeight, custom.soAmount);
+  const zeroTarget = zeroAdjustmentTarget(scenario, custom);
+  el("zero-hint").textContent = zeroHintText(
+    zeroTarget.componentId,
+    zeroTarget.selectedWeight,
+    zeroTarget.requiredWeight,
+    custom.soAmount,
+  );
+  const zeroApply = el("zero-apply");
+  const hasResidualToApply = Math.abs(custom.soAmount) >= DIFF_EPSILON_CZK || custom.soAmount < 0;
+  zeroApply.disabled = !zeroTarget.canApply || !hasResidualToApply;
+  zeroApply.title = zeroTarget.canApply
+    ? "Jednorázově nastaví vybraný parametr tak, aby motivace k mikroregionální spolupráci vyšla 0 Kč."
+    : "Dopočet není pro aktuální nastavení dostupný.";
 
   renderBudget(custom);
-  renderBuckets("pct-buckets", bucketize(primaryCompared, PCT_BUCKETS, (row) => row.diffPct), primaryCompared);
-  renderBuckets("czk-buckets", bucketize(primaryCompared, CZK_BUCKETS, (row) => row.diff), primaryCompared);
+  const pctBuckets = bucketize(primaryCompared, PCT_BUCKETS, (row) => row.diffPct);
+  const czkBuckets = bucketize(primaryCompared, CZK_BUCKETS, (row) => row.diff);
+  renderBuckets("pct-buckets", pctBuckets, primaryCompared);
+  renderBuckets("pct-population-buckets", pctBuckets, primaryCompared, { scaleBy: "populationShare" });
+  renderBuckets("czk-buckets", czkBuckets, primaryCompared);
+  renderBuckets("czk-population-buckets", czkBuckets, primaryCompared, { scaleBy: "populationShare" });
   renderSizeImpactChart("size-impact-pct", sizeImpactRows, (row) => row.diffPct, (value) => formatPct(value));
   renderSizeImpactChart("size-impact-czk", sizeImpactRows, (row) => row.diff, (value) => formatCzk(value));
   renderSizeImpactChart("size-impact-per-capita", sizeImpactRows, (row) => row.diffPerCapita, formatCzkPerCapita);
   renderSizeImpactChart("size-impact-per-municipality", sizeImpactRows, (row) => row.diffPerMunicipality, formatCzkPerMunicipality);
-  renderResults(comparison);
+  renderResults(comparison, {
+    regionFilterId: "region-filter",
+    orpFilterId: "orp-filter",
+  });
   renderBuckets(
     "orp-pct-buckets",
     bucketize(primaryComparedByOrp, PCT_BUCKETS, (row) => row.diffPct),
@@ -1191,16 +1272,29 @@ function render() {
     { entityLabel: "ORP" },
   );
   renderBuckets(
+    "orp-pct-population-buckets",
+    bucketize(primaryComparedByOrp, PCT_BUCKETS, (row) => row.diffPct),
+    primaryComparedByOrp,
+    { entityLabel: "ORP", scaleBy: "populationShare" },
+  );
+  renderBuckets(
     "orp-czk-buckets",
     bucketize(primaryComparedByOrp, CZK_BUCKETS, (row) => row.diff),
     primaryComparedByOrp,
     { entityLabel: "ORP" },
+  );
+  renderBuckets(
+    "orp-czk-population-buckets",
+    bucketize(primaryComparedByOrp, CZK_BUCKETS, (row) => row.diff),
+    primaryComparedByOrp,
+    { entityLabel: "ORP", scaleBy: "populationShare" },
   );
   renderResults(comparison, {
     headId: "orp-result-head",
     bodyId: "orp-result-body",
     mode: "orp",
     searchId: "orp-search",
+    regionFilterId: "orp-region-filter",
     tableKey: "orpResults",
     valueMode: el("orp-result-value-mode")?.value ?? "total",
   });
@@ -1211,10 +1305,22 @@ function render() {
     { entityLabel: "krajů" },
   );
   renderBuckets(
+    "region-pct-population-buckets",
+    bucketize(primaryComparedByRegion, PCT_BUCKETS, (row) => row.diffPct),
+    primaryComparedByRegion,
+    { entityLabel: "krajů", scaleBy: "populationShare" },
+  );
+  renderBuckets(
     "region-czk-buckets",
     bucketize(primaryComparedByRegion, CZK_BUCKETS, (row) => row.diff),
     primaryComparedByRegion,
     { entityLabel: "krajů" },
+  );
+  renderBuckets(
+    "region-czk-population-buckets",
+    bucketize(primaryComparedByRegion, CZK_BUCKETS, (row) => row.diff),
+    primaryComparedByRegion,
+    { entityLabel: "krajů", scaleBy: "populationShare" },
   );
   renderResults(comparison, {
     headId: "region-result-head",
@@ -1250,6 +1356,53 @@ function populateYearSelect(select, years, selectedYear) {
     select.appendChild(option);
   }
   select.value = selectedYear;
+}
+
+function populateRegionFilter(selectId = "region-filter") {
+  const select = el(selectId);
+  const regionsByCode = new Map();
+  for (const row of DATA.municipalities) {
+    const code = String(row.regionCode ?? "");
+    if (!code || regionsByCode.has(code)) continue;
+    const abbreviation = REGION_ABBREVIATIONS[row.regionCode] ?? "";
+    regionsByCode.set(code, {
+      code,
+      label: abbreviation ? `${abbreviation} - ${row.region}` : row.region,
+    });
+  }
+
+  select.innerHTML = '<option value="">Filtr kraj: vše</option>';
+  for (const region of Array.from(regionsByCode.values()).sort((a, b) => collator.compare(a.label, b.label))) {
+    const option = document.createElement("option");
+    option.value = region.code;
+    option.textContent = region.label;
+    select.appendChild(option);
+  }
+}
+
+function populateOrpFilter() {
+  const select = el("orp-filter");
+  const current = select.value;
+  const selectedRegion = el("region-filter").value;
+  const orpsByCode = new Map();
+  for (const row of DATA.municipalities) {
+    if (selectedRegion && String(row.regionCode ?? "") !== selectedRegion) continue;
+    const code = String(row.orpCode ?? "");
+    if (!code || orpsByCode.has(code)) continue;
+    orpsByCode.set(code, {
+      code,
+      label: `${code} - ${row.orpName || "Bez ORP"}`,
+    });
+  }
+
+  select.innerHTML = '<option value="">Filtr ORP: vše</option>';
+  for (const orp of Array.from(orpsByCode.values()).sort((a, b) => collator.compare(a.label, b.label))) {
+    const option = document.createElement("option");
+    option.value = orp.code;
+    option.textContent = orp.label;
+    select.appendChild(option);
+  }
+  select.value = orpsByCode.has(current) ? current : "";
 }
 
 function syncComparisonYearsToDefault() {
@@ -1317,6 +1470,9 @@ function initControls() {
   setPercentInput("weight-area", DATA.defaultScenario.standardWeights.landArea);
   setPercentInput("weight-school", DATA.defaultScenario.standardWeights.schoolChildren);
   setPercentInput("dpfo-percent", DATA.defaultScenario.dpfoMotivationPercent);
+  populateRegionFilter();
+  populateRegionFilter("orp-region-filter");
+  populateOrpFilter();
 
   for (const metric of DATA.dpfoMetrics ?? [{ id: "employees", label: "Zaměstnanci" }]) {
     const option = document.createElement("option");
@@ -1345,6 +1501,15 @@ function initControls() {
   });
   el("association-upload").addEventListener("change", (event) => {
     handleBehaviorUpload("association", event.target.files?.[0], "association-status");
+  });
+  el("region-filter").addEventListener("change", populateOrpFilter);
+  el("zero-apply").addEventListener("click", () => {
+    const scenario = readScenarioFromControls();
+    const result = computeScenario(scenario);
+    const zeroTarget = zeroAdjustmentTarget(scenario, result);
+    if (!zeroTarget.canApply) return;
+    setPercentInput(zeroTarget.component.input, zeroTarget.requiredWeight, 8);
+    render();
   });
 
   document.querySelectorAll("input, select").forEach((control) => {

@@ -187,6 +187,14 @@
             </div>
           </section>
 
+          <section class="impact-display-filter">
+            <label class="impact-filter-label">
+              <input id="exclude-prague" type="checkbox" />
+              <span>Zobrazit dopady bez Prahy</span>
+            </label>
+            <p>Výpočet zůstává včetně Prahy; Praha je vynechána pouze ze zobrazených souhrnů, tabulek a grafů.</p>
+          </section>
+
           <section class="area-title area-title-dark">
             <h2>Dopady po obcích</h2>
           </section>
@@ -382,9 +390,12 @@
             </article>
           </section>
 
-          <section class="area-title area-title-dark">
-            <h2>Dopady po ORP</h2>
-            <p>Součty výsledků po ORP; používá stejné sloupce A/B/C jako srovnání výše</p>
+          <section class="area-title area-title-dark area-title-with-action">
+            <div>
+              <h2>Dopady po ORP</h2>
+              <p>Součty výsledků po ORP; používá stejné sloupce A/B/C jako srovnání výše</p>
+            </div>
+            <button id="open-orp-map" class="map-open-button" type="button">Mapa dopadů po ORP</button>
           </section>
 
           <section class="metrics-grid">
@@ -541,6 +552,30 @@
         </section>
       </section>
     </main>
+
+    <div id="orp-map-modal" class="map-modal" hidden>
+      <div class="map-modal-backdrop" data-map-close></div>
+      <section class="map-modal-panel" role="dialog" aria-modal="true" aria-labelledby="orp-map-title" aria-describedby="orp-map-subtitle">
+        <div class="map-modal-head">
+          <div>
+            <h2 id="orp-map-title">Mapa dopadů po ORP</h2>
+            <p id="orp-map-subtitle">Rozdíl B-A v %, podle aktuálního nastavení modelu</p>
+          </div>
+          <button id="close-orp-map" class="map-close-button" type="button">Zavřít</button>
+        </div>
+        <p id="orp-map-status" class="map-status" aria-live="polite"></p>
+        <div class="map-modal-content">
+          <div id="orp-map-container" class="orp-map-container"></div>
+          <aside class="orp-map-side">
+            <div id="orp-map-detail" class="orp-map-detail"></div>
+            <div>
+              <h3>Legenda</h3>
+              <div id="orp-map-legend" class="orp-map-legend"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="./data.js"></script>

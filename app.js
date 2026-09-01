@@ -72,6 +72,23 @@ const SIZE_CATEGORIES = [
 
 const DIFF_EPSILON_CZK = 0.5;
 const ZERO_TARGET_SURPLUS_CZK = 0.01;
+const PRAGUE_MUNICIPALITY_CODE = 554782;
+const SVG_NS = "http://www.w3.org/2000/svg";
+const ORP_MAP_DATA_SCRIPT_ID = "orp-map-data-script";
+
+const ORP_MAP_BUCKETS = [
+  { label: "> 5 %", min: 0.05, max: Infinity, color: "#126f49" },
+  { label: "3 až 5 %", min: 0.03, max: 0.05, color: "#1f8a5f" },
+  { label: "1 až 3 %", min: 0.01, max: 0.03, color: "#59b982" },
+  { label: "> 0 až 1 %", min: 0, max: 0.01, includeMin: false, color: "#b9dfc7" },
+  { label: "0 %", exact: 0, color: "#d8ded9" },
+  { label: "-1 až < 0 %", min: -0.01, max: 0, color: "#f3c6bf" },
+  { label: "-3 až -1 %", min: -0.03, max: -0.01, color: "#df796e" },
+  { label: "-5 až -3 %", min: -0.05, max: -0.03, color: "#c9352a" },
+  { label: "< -5 %", min: -Infinity, max: -0.05, color: "#9f1f17" },
+];
+
+const ORP_MAP_NO_DATA_COLOR = "#edf0ed";
 
 const state = {
   behaviorUploads: {
@@ -84,6 +101,7 @@ const state = {
     orpResults: null,
     regionResults: null,
   },
+  orpMapDataPromise: null,
 };
 
 const el = (id) => document.getElementById(id);
@@ -607,18 +625,19 @@ function groupingForRow(row, mode) {
 
 function bucketize(rows, buckets, getter) {
   return buckets.map((bucket) => {
-    const members = rows.filter((row) => {
-      const value = getter(row);
-      if ("exact" in bucket) return value === bucket.exact;
-      const aboveMin = bucket.includeMin === false ? value > bucket.min : value >= bucket.min;
-      return aboveMin && value < bucket.max;
-    });
+    const members = rows.filter((row) => valueInBucket(getter(row), bucket));
     return {
       ...bucket,
       count: members.length,
       population: sumBy(members, (row) => row.population),
     };
   });
+}
+
+function valueInBucket(value, bucket) {
+  if ("exact" in bucket) return value === bucket.exact;
+  const aboveMin = bucket.includeMin === false ? value > bucket.min : value >= bucket.min;
+  return aboveMin && value < bucket.max;
 }
 
 function bucketTone(bucket) {
@@ -758,15 +777,14 @@ function renderBuckets(id, buckets, rows, options = {}) {
   const entityLabel = options.entityLabel ?? "obcí";
   const scaleBy = options.scaleBy ?? "count";
   const container = el(id);
-  const maxCount = Math.max(1, ...buckets.map((bucket) => bucket.count));
-  const maxPopulation = Math.max(1, ...buckets.map((bucket) => bucket.population));
+  const totalCount = Math.max(1, rows.length);
   const totalPopulation = Math.max(1, sumBy(rows, (row) => row.population));
   container.innerHTML = "";
   for (const bucket of buckets) {
     const populationShare = bucket.population / totalPopulation;
-    const width = scaleBy === "populationShare"
-      ? (bucket.population / maxPopulation) * 100
-      : (bucket.count / maxCount) * 100;
+    const width = Math.max(0, Math.min(100, scaleBy === "populationShare"
+      ? populationShare * 100
+      : (bucket.count / totalCount) * 100));
     const detail = scaleBy === "populationShare"
       ? `${formatPct(populationShare, 1)} obyv.`
       : `${formatNumber(bucket.count)} ${entityLabel}`;
@@ -982,6 +1000,14 @@ function primaryComparisonRows(comparison) {
   });
 }
 
+function comparisonForDisplayedImpacts(comparison) {
+  if (!el("exclude-prague")?.checked) return comparison;
+  return {
+    ...comparison,
+    rows: comparison.rows.filter((row) => Number(row.code) !== PRAGUE_MUNICIPALITY_CODE),
+  };
+}
+
 function aggregateComparisonRows(rows, mode, scenarios) {
   if (mode === "municipality") return rows;
   const groups = new Map();
@@ -1184,15 +1210,290 @@ function renderResults(comparison, options = {}) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]));
+}
+
+function loadOrpMapData() {
+  if (window.RUD_ORP_MAP_DATA) return Promise.resolve(window.RUD_ORP_MAP_DATA);
+  if (state.orpMapDataPromise) return state.orpMapDataPromise;
+
+  state.orpMapDataPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById(ORP_MAP_DATA_SCRIPT_ID);
+    if (existing) existing.remove();
+    const script = document.createElement("script");
+    script.id = ORP_MAP_DATA_SCRIPT_ID;
+    script.async = true;
+    script.src = "./maps/orp-map-data.js";
+    script.onload = () => {
+      if (window.RUD_ORP_MAP_DATA) {
+        resolve(window.RUD_ORP_MAP_DATA);
+      } else {
+        state.orpMapDataPromise = null;
+        reject(new Error("Mapová data ORP se nenačetla."));
+      }
+    };
+    script.onerror = () => {
+      state.orpMapDataPromise = null;
+      reject(new Error("Soubor s mapou ORP se nepodařilo načíst."));
+    };
+    document.body.appendChild(script);
+  });
+
+  return state.orpMapDataPromise;
+}
+
+function currentOrpMapRows() {
+  const scenario = readScenarioFromControls();
+  const comparison = comparisonForDisplayedImpacts(buildComparison(scenario));
+  return aggregateRows(primaryComparisonRows(comparison), "orp");
+}
+
+function mapBucketForValue(value) {
+  return ORP_MAP_BUCKETS.find((bucket) => valueInBucket(value, bucket)) ?? ORP_MAP_BUCKETS[4];
+}
+
+function mapColorForValue(value) {
+  return mapBucketForValue(value).color;
+}
+
+function mercatorProject(coordinate) {
+  const lon = Number(coordinate[0]) * Math.PI / 180;
+  const lat = Math.max(-85, Math.min(85, Number(coordinate[1]))) * Math.PI / 180;
+  return [lon, Math.log(Math.tan(Math.PI / 4 + lat / 2))];
+}
+
+function forEachGeometryCoordinate(geometry, callback) {
+  if (!geometry?.coordinates) return;
+  if (geometry.type === "Polygon") {
+    for (const ring of geometry.coordinates) {
+      for (const coordinate of ring) callback(coordinate);
+    }
+  }
+  if (geometry.type === "MultiPolygon") {
+    for (const polygon of geometry.coordinates) {
+      for (const ring of polygon) {
+        for (const coordinate of ring) callback(coordinate);
+      }
+    }
+  }
+}
+
+function projectedBounds(features) {
+  const bounds = {
+    minX: Infinity,
+    minY: Infinity,
+    maxX: -Infinity,
+    maxY: -Infinity,
+  };
+  for (const feature of features) {
+    forEachGeometryCoordinate(feature.geometry, (coordinate) => {
+      const [x, y] = mercatorProject(coordinate);
+      bounds.minX = Math.min(bounds.minX, x);
+      bounds.minY = Math.min(bounds.minY, y);
+      bounds.maxX = Math.max(bounds.maxX, x);
+      bounds.maxY = Math.max(bounds.maxY, y);
+    });
+  }
+  return bounds;
+}
+
+function mapProjection(bounds, width, height, padding) {
+  const dataWidth = Math.max(0.000001, bounds.maxX - bounds.minX);
+  const dataHeight = Math.max(0.000001, bounds.maxY - bounds.minY);
+  const scale = Math.min((width - padding * 2) / dataWidth, (height - padding * 2) / dataHeight);
+  const offsetX = (width - dataWidth * scale) / 2;
+  const offsetY = (height - dataHeight * scale) / 2;
+  return (coordinate) => {
+    const [x, y] = mercatorProject(coordinate);
+    return [
+      offsetX + (x - bounds.minX) * scale,
+      height - offsetY - (y - bounds.minY) * scale,
+    ];
+  };
+}
+
+function polygonPath(rings, project) {
+  return rings.map((ring) => (
+    ring.map((coordinate, index) => {
+      const [x, y] = project(coordinate);
+      return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).join(" ") + " Z"
+  )).join(" ");
+}
+
+function geometryPath(geometry, project) {
+  if (!geometry?.coordinates) return "";
+  if (geometry.type === "Polygon") return polygonPath(geometry.coordinates, project);
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.map((polygon) => polygonPath(polygon, project)).join(" ");
+  }
+  return "";
+}
+
+function renderOrpMapLegend() {
+  const legend = el("orp-map-legend");
+  legend.innerHTML = [
+    ...ORP_MAP_BUCKETS.map((bucket) => `
+      <div class="orp-map-legend-row">
+        <span class="orp-map-legend-swatch" style="background:${bucket.color}"></span>
+        <span>${escapeHtml(bucket.label)}</span>
+      </div>
+    `),
+    `
+      <div class="orp-map-legend-row">
+        <span class="orp-map-legend-swatch" style="background:${ORP_MAP_NO_DATA_COLOR}"></span>
+        <span>bez dat</span>
+      </div>
+    `,
+  ].join("");
+}
+
+function renderOrpMapDetail(row, feature) {
+  const detail = el("orp-map-detail");
+  if (!row) {
+    detail.innerHTML = `
+      <h3>${escapeHtml(feature.name)}</h3>
+      <dl>
+        <dt>Kód ORP</dt>
+        <dd>${formatNumber(feature.appCode)}</dd>
+        <dt>Stav</dt>
+        <dd>bez dat</dd>
+      </dl>
+    `;
+    return;
+  }
+
+  detail.innerHTML = `
+    <h3>${escapeHtml(row.name)}</h3>
+    <dl>
+      <dt>Kód ORP</dt>
+      <dd>${formatNumber(row.code)}</dd>
+      <dt>Obyvatelé</dt>
+      <dd>${formatNumber(row.population)}</dd>
+      <dt>Rozdíl B-A</dt>
+      <dd class="${sortClassForDiff(row.diff)}">${formatPct(row.diffPct)}</dd>
+      <dt>Částka</dt>
+      <dd class="${sortClassForDiff(row.diff)}">${formatCzk(row.diff)}</dd>
+    </dl>
+  `;
+}
+
+function renderOrpMapSummary(rows) {
+  const winners = rows.filter((row) => row.diff > DIFF_EPSILON_CZK);
+  const losers = rows.filter((row) => row.diff < -DIFF_EPSILON_CZK);
+  el("orp-map-detail").innerHTML = `
+    <h3>Souhrn mapy</h3>
+    <dl>
+      <dt>ORP v plusu</dt>
+      <dd class="positive">${formatNumber(winners.length)}</dd>
+      <dt>ORP v minusu</dt>
+      <dd class="negative">${formatNumber(losers.length)}</dd>
+      <dt>Obyvatelé v plusu</dt>
+      <dd class="positive">${formatNumber(sumBy(winners, (row) => row.population))}</dd>
+      <dt>Obyvatelé v minusu</dt>
+      <dd class="negative">${formatNumber(sumBy(losers, (row) => row.population))}</dd>
+    </dl>
+  `;
+}
+
+function renderOrpMap(mapData, rows) {
+  const container = el("orp-map-container");
+  const rowsByCode = new Map(rows.map((row) => [Number(row.code), row]));
+  const features = mapData.features ?? [];
+  const bounds = projectedBounds(features);
+  const width = 1100;
+  const dataRatio = (bounds.maxY - bounds.minY) / Math.max(0.000001, bounds.maxX - bounds.minX);
+  const height = Math.max(560, Math.min(720, Math.round(width * dataRatio)));
+  const project = mapProjection(bounds, width, height, 18);
+
+  container.innerHTML = "";
+  renderOrpMapLegend();
+  renderOrpMapSummary(rows);
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("class", "orp-map-svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-labelledby", "orp-map-svg-title orp-map-svg-desc");
+
+  const title = document.createElementNS(SVG_NS, "title");
+  title.id = "orp-map-svg-title";
+  title.textContent = "Mapa dopadů po ORP";
+  svg.appendChild(title);
+
+  const desc = document.createElementNS(SVG_NS, "desc");
+  desc.id = "orp-map-svg-desc";
+  desc.textContent = "Barevná mapa ORP podle rozdílu B-A v procentech.";
+  svg.appendChild(desc);
+
+  const group = document.createElementNS(SVG_NS, "g");
+  for (const feature of features) {
+    const row = rowsByCode.get(Number(feature.appCode));
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("class", "orp-map-shape");
+    path.setAttribute("d", geometryPath(feature.geometry, project));
+    path.setAttribute("fill", row ? mapColorForValue(row.diffPct) : ORP_MAP_NO_DATA_COLOR);
+    path.setAttribute("fill-rule", "evenodd");
+    path.addEventListener("mouseenter", () => renderOrpMapDetail(row, feature));
+    path.addEventListener("click", () => renderOrpMapDetail(row, feature));
+
+    const pathTitle = document.createElementNS(SVG_NS, "title");
+    pathTitle.textContent = row
+      ? `${feature.name}: ${formatPct(row.diffPct)} (${formatCzk(row.diff)})`
+      : `${feature.name}: bez dat`;
+    path.appendChild(pathTitle);
+    group.appendChild(path);
+  }
+  svg.appendChild(group);
+  container.appendChild(svg);
+}
+
+async function openOrpMap() {
+  const modal = el("orp-map-modal");
+  const status = el("orp-map-status");
+  modal.hidden = false;
+  document.body.classList.add("map-modal-open");
+  status.className = "map-status";
+  status.textContent = "Načítám mapu dopadů...";
+  el("orp-map-container").innerHTML = "";
+  el("orp-map-detail").innerHTML = "";
+  el("orp-map-legend").innerHTML = "";
+  el("close-orp-map").focus();
+
+  try {
+    const mapData = await loadOrpMapData();
+    renderOrpMap(mapData, currentOrpMapRows());
+    status.textContent = "";
+  } catch (error) {
+    status.className = "map-status error";
+    status.textContent = error.message;
+  }
+}
+
+function closeOrpMap() {
+  el("orp-map-modal").hidden = true;
+  document.body.classList.remove("map-modal-open");
+}
+
 function render() {
   const scenario = readScenarioFromControls();
   const custom = computeScenario(scenario);
   const comparison = buildComparison(scenario);
-  const primaryCompared = primaryComparisonRows(comparison);
-  const primaryTarget = comparison.scenarios[1] ?? comparison.scenarios[0];
+  const impactComparison = comparisonForDisplayedImpacts(comparison);
+  const impactsWithoutPrague = impactComparison !== comparison;
+  const primaryCompared = primaryComparisonRows(impactComparison);
+  const primaryTarget = impactComparison.scenarios[1] ?? impactComparison.scenarios[0];
   const primaryComparedByOrp = aggregateRows(primaryCompared, "orp");
   const primaryComparedByRegion = aggregateRows(primaryCompared, "region");
-  const sizeImpactRows = buildSizeImpactRows(primaryCompared);
+  const sizeImpactRows = buildSizeImpactRows(primaryCompared)
+    .filter((row) => !impactsWithoutPrague || row.count > 0);
 
   const winners = primaryCompared.filter((row) => row.diff > 0.5);
   const losers = primaryCompared.filter((row) => row.diff < -0.5);
@@ -1261,7 +1562,7 @@ function render() {
   renderSizeImpactChart("size-impact-czk", sizeImpactRows, (row) => row.diff, (value) => formatCzk(value));
   renderSizeImpactChart("size-impact-per-capita", sizeImpactRows, (row) => row.diffPerCapita, formatCzkPerCapita);
   renderSizeImpactChart("size-impact-per-municipality", sizeImpactRows, (row) => row.diffPerMunicipality, formatCzkPerMunicipality);
-  renderResults(comparison, {
+  renderResults(impactComparison, {
     regionFilterId: "region-filter",
     orpFilterId: "orp-filter",
   });
@@ -1289,7 +1590,7 @@ function render() {
     primaryComparedByOrp,
     { entityLabel: "ORP", scaleBy: "populationShare" },
   );
-  renderResults(comparison, {
+  renderResults(impactComparison, {
     headId: "orp-result-head",
     bodyId: "orp-result-body",
     mode: "orp",
@@ -1322,7 +1623,7 @@ function render() {
     primaryComparedByRegion,
     { entityLabel: "krajů", scaleBy: "populationShare" },
   );
-  renderResults(comparison, {
+  renderResults(impactComparison, {
     headId: "region-result-head",
     bodyId: "region-result-body",
     mode: "region",
@@ -1503,6 +1804,12 @@ function initControls() {
     handleBehaviorUpload("association", event.target.files?.[0], "association-status");
   });
   el("region-filter").addEventListener("change", populateOrpFilter);
+  el("open-orp-map").addEventListener("click", openOrpMap);
+  el("close-orp-map").addEventListener("click", closeOrpMap);
+  document.querySelector("[data-map-close]").addEventListener("click", closeOrpMap);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !el("orp-map-modal").hidden) closeOrpMap();
+  });
   el("zero-apply").addEventListener("click", () => {
     const scenario = readScenarioFromControls();
     const result = computeScenario(scenario);

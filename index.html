@@ -87,7 +87,7 @@
             <button id="zero-apply" class="zero-apply" type="button">Nastavit pro nulu</button>
           </div>
 
-          <div class="group">
+          <div id="behavior-controls" class="group">
             <h3>Chování obcí</h3>
             <label>
               Více podnikavé
@@ -123,6 +123,11 @@
         </aside>
 
         <section class="workspace">
+          <nav class="workspace-tabs" role="tablist" aria-label="Zobrazení kalkulačky">
+            <button id="calculator-tab" class="workspace-tab" type="button" role="tab" aria-controls="calculator-panel" aria-selected="true" tabindex="0">Kalkulačka</button>
+            <button id="investor-tab" class="workspace-tab" type="button" role="tab" aria-controls="investor-panel" aria-selected="false" tabindex="-1">Nový investor</button>
+          </nav>
+          <div id="calculator-panel" class="calculator-panel" role="tabpanel" aria-labelledby="calculator-tab">
           <section class="fixed-pool-overview">
             <div class="fixed-pool-header">
               <div class="fixed-pool-context">
@@ -549,9 +554,59 @@
               <div id="region-czk-population-buckets" class="bucket-list"></div>
             </article>
           </section>
+          </div>
+          <section id="investor-panel" class="investor-panel" role="tabpanel" aria-labelledby="investor-tab" hidden></section>
         </section>
       </section>
     </main>
+
+    <template id="investor-template">
+      <h2>Nový investor</h2>
+      <form id="investor-form" novalidate>
+        <div class="investor-inputs">
+          <label for="investor-employees">
+            Noví zaměstnanci
+            <input id="investor-employees" type="text" inputmode="numeric" value="100" required aria-describedby="investor-error" />
+          </label>
+          <label for="investor-monthly-wage">
+            Hrubá měsíční mzda (Kč)
+            <input id="investor-monthly-wage" type="text" inputmode="decimal" value="40 000" required aria-describedby="investor-error" />
+          </label>
+          <button id="investor-calculate" class="investor-calculate" type="submit">Spočítat</button>
+        </div>
+        <p class="investor-volume">Roční objem mezd investora: <output id="investor-annual-wages" for="investor-employees investor-monthly-wage" aria-live="polite">48,0 mil. Kč</output></p>
+        <p id="investor-error" class="investor-error" role="alert" hidden></p>
+      </form>
+      <p id="investor-status" class="investor-status" role="status">Výsledky zatím nejsou spočítané.</p>
+      <div id="investor-results" class="investor-results" aria-describedby="investor-status">
+        <h3 class="investor-results-title">Roční příjmy modelových obcí z RUD</h3>
+        <div class="investor-table-wrap">
+          <table class="investor-table" aria-label="Příjmy modelových obcí před příchodem a po příchodu investora">
+            <colgroup>
+              <col class="investor-profile-col" />
+              <col span="6" class="investor-amount-col" />
+            </colgroup>
+            <thead>
+              <tr class="investor-system-headings">
+                <th rowspan="2" scope="col">Modelová obec<span class="investor-year">Velikostní kategorie</span></th>
+                <th colspan="3" scope="colgroup">Současný systém<span id="investor-current-year" class="investor-year"></span></th>
+                <th colspan="3" scope="colgroup" class="investor-group-start investor-scenario-heading">Nastavený scénář<span id="investor-scenario-year" class="investor-year"></span></th>
+              </tr>
+              <tr class="investor-column-headings">
+                <th scope="col"><span class="investor-column-title">Před<br />investorem</span><span class="investor-unit">mil. Kč / rok</span></th>
+                <th scope="col"><span class="investor-column-title">Po<br />investorovi</span><span class="investor-unit">mil. Kč / rok</span></th>
+                <th scope="col"><span class="investor-column-title">Přínos<br />investora</span><span class="investor-unit">Kč / rok</span></th>
+                <th scope="col" class="investor-group-start"><span class="investor-column-title">Před<br />investorem</span><span class="investor-unit">mil. Kč / rok</span></th>
+                <th scope="col"><span class="investor-column-title">Po<br />investorovi</span><span class="investor-unit">mil. Kč / rok</span></th>
+                <th scope="col"><span class="investor-column-title">Přínos<br />investora</span><span class="investor-unit">Kč / rok</span></th>
+              </tr>
+            </thead>
+            <tbody id="investor-result-body"></tbody>
+          </table>
+        </div>
+        <p class="investor-note">Zaokrouhlené modelové profily · Bez členství v SO · Stejný investor v každém profilu samostatně</p>
+      </div>
+    </template>
 
     <div id="orp-map-modal" class="map-modal" hidden>
       <div class="map-modal-backdrop" data-map-close></div>
@@ -580,5 +635,8 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="./data.js"></script>
     <script src="./app.js"></script>
+    <script src="./experiments/investor/profiles.js"></script>
+    <script src="./experiments/investor/investor-experiment.js"></script>
+    <script src="./investor.js"></script>
   </body>
 </html>

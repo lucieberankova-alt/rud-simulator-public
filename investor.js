@@ -95,17 +95,24 @@
     cell.dataset.field = field;
     if (options.groupStart) cell.classList.add("investor-group-start");
     if (options.gain) cell.classList.add("investor-gain");
-    if (value === undefined) {
+    if (value === undefined || value === null) {
       cell.textContent = "-";
       return cell;
     }
-    cell.dataset.amount = String(value);
-    if (options.gain) {
+    if (options.percent) {
+      cell.dataset.ratio = String(value);
+      const roundedValue = Number((value * 100).toFixed(2));
+      const normalizedValue = roundedValue === 0 ? 0 : roundedValue;
+      cell.textContent = `${normalizedValue > 0 ? "+" : ""}${formatNumber(normalizedValue, 2)}\u00a0%`;
+      if (normalizedValue !== 0) cell.classList.add(normalizedValue > 0 ? "positive" : "negative");
+    } else if (options.gain) {
+      cell.dataset.amount = String(value);
       const roundedValue = Math.round(value);
       const normalizedValue = roundedValue === 0 ? 0 : roundedValue;
       cell.textContent = `${normalizedValue > 0 ? "+" : ""}${formatNumber(normalizedValue)}`;
       if (normalizedValue !== 0) cell.classList.add(normalizedValue > 0 ? "positive" : "negative");
     } else {
+      cell.dataset.amount = String(value);
       cell.textContent = formatNumber(value / 1_000_000, 3);
     }
     return cell;
@@ -134,6 +141,7 @@
         row.appendChild(amountCell(values?.[system].before.totalAmount, `${system}-before`, { groupStart: system === "scenario" }));
         row.appendChild(amountCell(values?.[system].after.totalAmount, `${system}-after`));
         row.appendChild(amountCell(values?.[system].increaseAmount, `${system}-gain`, { gain: true }));
+        row.appendChild(amountCell(values?.[system].increasePct, `${system}-gain-pct`, { gain: true, percent: true }));
       }
       body.appendChild(row);
     }

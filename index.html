@@ -584,21 +584,26 @@
           <table class="investor-table" aria-label="Příjmy modelových obcí před příchodem a po příchodu investora">
             <colgroup>
               <col class="investor-profile-col" />
-              <col span="6" class="investor-amount-col" />
+              <col span="3" class="investor-amount-col" />
+              <col class="investor-percent-col" />
+              <col span="3" class="investor-amount-col" />
+              <col class="investor-percent-col" />
             </colgroup>
             <thead>
               <tr class="investor-system-headings">
                 <th rowspan="2" scope="col">Modelová obec<span class="investor-year">Velikostní kategorie</span></th>
-                <th colspan="3" scope="colgroup">Současný systém<span id="investor-current-year" class="investor-year"></span></th>
-                <th colspan="3" scope="colgroup" class="investor-group-start investor-scenario-heading">Nastavený scénář<span id="investor-scenario-year" class="investor-year"></span></th>
+                <th colspan="4" scope="colgroup">Současný systém<span id="investor-current-year" class="investor-year"></span></th>
+                <th colspan="4" scope="colgroup" class="investor-group-start investor-scenario-heading">Nastavený scénář<span id="investor-scenario-year" class="investor-year"></span></th>
               </tr>
               <tr class="investor-column-headings">
                 <th scope="col"><span class="investor-column-title">Před<br />investorem</span><span class="investor-unit">mil. Kč / rok</span></th>
                 <th scope="col"><span class="investor-column-title">Po<br />investorovi</span><span class="investor-unit">mil. Kč / rok</span></th>
                 <th scope="col"><span class="investor-column-title">Přínos<br />investora</span><span class="investor-unit">Kč / rok</span></th>
+                <th scope="col" aria-label="Přínos investora v procentech příjmů před investorem"><span class="investor-column-title">Přínos<br />investora</span><span class="investor-unit">%</span></th>
                 <th scope="col" class="investor-group-start"><span class="investor-column-title">Před<br />investorem</span><span class="investor-unit">mil. Kč / rok</span></th>
                 <th scope="col"><span class="investor-column-title">Po<br />investorovi</span><span class="investor-unit">mil. Kč / rok</span></th>
                 <th scope="col"><span class="investor-column-title">Přínos<br />investora</span><span class="investor-unit">Kč / rok</span></th>
+                <th scope="col" aria-label="Přínos investora v procentech příjmů před investorem"><span class="investor-column-title">Přínos<br />investora</span><span class="investor-unit">%</span></th>
               </tr>
             </thead>
             <tbody id="investor-result-body"></tbody>

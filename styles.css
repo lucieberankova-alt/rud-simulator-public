@@ -339,15 +339,19 @@ select:focus {
 
 .investor-table {
   font-variant-numeric: tabular-nums;
-  min-width: 760px;
+  min-width: 920px;
 }
 
 .investor-profile-col {
-  width: 19%;
+  width: 16%;
 }
 
 .investor-amount-col {
-  width: 13.5%;
+  width: 11%;
+}
+
+.investor-percent-col {
+  width: 9%;
 }
 
 .investor-table th,
